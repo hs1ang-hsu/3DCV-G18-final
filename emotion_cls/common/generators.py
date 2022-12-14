@@ -123,9 +123,10 @@ class UnchunkedGenerator:
     
     def __init__(self, face_mesh, emotion, pad=0):
         self.pad = pad
-        self.face_mesh = [] if face_mesh is None else face_mesh
-        self.emotion = emotion
-        
+        self.face_mesh = face_mesh
+        self.emotion = [] if emotion is None else emotion
+        self.num_batches = len(self.face_mesh)
+    
     def num_frames(self):
         count = 0
         for p in self.emotion:

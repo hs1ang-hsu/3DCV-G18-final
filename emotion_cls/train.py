@@ -8,7 +8,6 @@ from tqdm import tqdm
 import os
 import sys
 import numpy as np
-from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -89,6 +88,12 @@ def main(args):
                     args.out_dim, args.num_classes, args.using_trans).to(args.device)
     model_eval = EmotionClassifier(args.kp, args.feature_dim, args.hidden_dim, args.channels,
                     args.out_dim, args.num_classes, args.using_trans).to(args.device)
+    
+    # number of params
+    model_params = 0
+    for parameter in model.parameters():
+        model_params += parameter.numel()
+    print('Trainable parameter count:', model_params)
 
     # init optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=0.1)
@@ -129,10 +134,8 @@ def main(args):
         for param_group in optimizer.param_groups:
             param_group['lr'] *= args.lrd
         
-        if (epoch+1) % 20 == 0:
-            chk_path = os.path.join(args.checkpoint_dir, f'epoch_{epoch+1}.bin')
-            print('Saving checkpoint to', chk_path)
-            torch.save(model.state_dict(), chk_path)
+        chk_path = os.path.join(args.checkpoint_dir, 'final.bin')
+        torch.save(model.state_dict(), chk_path)
         
         if args.export_training_curves and epoch > 1:
             if 'matplotlib' not in sys.modules:

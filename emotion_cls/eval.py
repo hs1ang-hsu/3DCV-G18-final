@@ -8,18 +8,26 @@ from tqdm import tqdm
 import os
 import sys
 import numpy as np
-from tqdm import tqdm
+from collections import Counter
 
 import torch
 from torch.utils.data import DataLoader
 
-from common.generators import ChunkedGenerator
+from common.generators import ChunkedGenerator, UnchunkedGenerator
 from common.model import EmotionClassifier
 
 TRAIN = 'train'
 VALID = 'validation'
 
-def evaluate(model_eval, dataloader_eval, args):
+def eval_data_prepare(receptive_field, inputs_mesh):
+    inputs_mesh = torch.squeeze(inputs_mesh)
+    out_num = inputs_mesh.shape[0] - receptive_field + 1
+    eval_input_mesh = torch.empty(out_num, receptive_field, inputs_mesh.shape[1], inputs_mesh.shape[2])
+    for i in range(out_num):
+        eval_input_mesh[i,:,:,:] = inputs_mesh[i:i+receptive_field, :, :]
+    return eval_input_mesh
+
+def evaluate_frame(model_eval, dataloader_eval, args):
     correct_eval = 0
     N = 0
     progress = tqdm(total=dataloader_eval.num_batches)
@@ -43,6 +51,34 @@ def evaluate(model_eval, dataloader_eval, args):
             progress.update(1)
     return correct_eval / N
 
+def evaluate(model_eval, dataloader_eval, args):
+    correct_eval = 0
+    N = 0
+    progress = tqdm(total=dataloader_eval.num_batches)
+    with torch.no_grad():
+        model_eval.eval()
+        for batch_mesh, batch_emotion in dataloader_eval.next_epoch():
+            inputs_mesh = eval_data_prepare(args.frame, torch.from_numpy(batch_mesh.astype('float32')))
+            inputs_emotion = torch.from_numpy(batch_emotion.astype('float32'))
+            
+            inputs_mesh = inputs_mesh.to(args.device)
+            inputs_emotion = inputs_emotion.to(args.device)
+            
+            # evaluate
+            pred, loss = model_eval(inputs_mesh, inputs_emotion)
+            
+            # acc
+            pred = pred.detach().cpu()
+            gt = inputs_emotion.detach().cpu()
+            
+            counter = Counter(pred)
+            most_common = counter.most_common(1)[0][0]
+            correct_eval += 1 if most_common==gt[0][0] else 0
+            N += 1
+            
+            progress.update(1)
+    return correct_eval / N
+
 def get_dataset(args, data, s):
     print(f"processing {s} data...")
     input = []
@@ -50,7 +86,8 @@ def get_dataset(args, data, s):
     for d in data:
         input.append(d['face_mesh'])
         gt.append(d['emotion'])
-    return ChunkedGenerator(args.batch_size, input, gt, args.frame//2)
+    # return UnchunkedGenerator(input, gt, args.frame//2)
+    return ChunkedGenerator(64, input, gt, args.frame//2)
 
 
 def main(args):
@@ -65,10 +102,12 @@ def main(args):
     model.load_state_dict(checkpoint)
         
     # Training loop
-    acc_train = evaluate(model, dataloader_eval, args)
+    # acc_train = evaluate(model, dataloader_train, args)
+    acc_train = evaluate_frame(model, dataloader_train, args)
     
     # Evaluation loop
-    acc_eval = evaluate(model, dataloader_eval, args)
+    # acc_eval = evaluate(model, dataloader_eval, args)
+    acc_eval = evaluate_frame(model, dataloader_eval, args)
     
     # Saving data
     print('train: %f, eval: %f' % (acc_train, acc_eval))

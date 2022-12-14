@@ -6,6 +6,8 @@
 - pytorch
 - einops
 - numpy
+- timm
+- collections
 
 ### Download dataset
 Download the dataset from Google drive and put it in the dataset directory.

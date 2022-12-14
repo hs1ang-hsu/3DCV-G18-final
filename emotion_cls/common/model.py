@@ -79,7 +79,8 @@ class EmotionClassifier(nn.Module):
         # layer
         if trans:
             self.feature_transform = TransformNet(kp, 3, hidden_dim)
-        self.feature_spatial = nn.Linear(3, feature_dim)
+        if feature_dim != 3:
+            self.feature_spatial = nn.Linear(3, feature_dim)
         self.temporal_convolution = TemporalModel(kp, feature_dim, out_dim, [3,3,3], channels=channels)
         self.final = nn.Linear(out_dim, cls)
         
@@ -88,6 +89,7 @@ class EmotionClassifier(nn.Module):
         
         # param
         self.trans = trans
+        self.feature_dim = feature_dim
         
 
     def forward(self, x, y):
@@ -100,7 +102,8 @@ class EmotionClassifier(nn.Module):
             x = torch.bmm(x, T_input)
             x = x.view(b, f, p, -1)
         
-        x = self.feature_spatial(x)
+        if self.feature_dim != 3:
+            x = self.feature_spatial(x)
         
         # temporal convolution
         x = self.temporal_convolution(x)
@@ -109,6 +112,55 @@ class EmotionClassifier(nn.Module):
         
         y = torch.squeeze(y)
         return x.max(1)[1], F.cross_entropy(x, y.long())
+
+class EmotionClassifierInference(nn.Module):
+    def __init__(
+        self,
+        kp=34,
+        feature_dim=3,
+        hidden_dim=256,
+        channels=1024,
+        out_dim=64,
+        cls=7,
+        trans=False,
+    ):
+        super().__init__()
+        
+        # layer
+        if trans:
+            self.feature_transform = TransformNet(kp, 3, hidden_dim)
+        if feature_dim != 3:
+            self.feature_spatial = nn.Linear(3, feature_dim)
+        self.temporal_convolution = TemporalModel(kp, feature_dim, out_dim, [3,3,3], channels=channels)
+        self.final = nn.Linear(out_dim, cls)
+        
+        # activation functions
+        self.act_layer = nn.ReLU()
+        
+        # param
+        self.trans = trans
+        self.feature_dim = feature_dim
+        
+
+    def forward(self, x):
+        # x.shape = (batch, frames, keypoints, 3), keypoints=34
+        b, f, p, _ = x.shape
+        
+        if self.trans:
+            x = rearrange(x, 'b f p c -> (b f) p c', )
+            T_input = self.feature_transform(x) # (b*f, p, feature_dim)
+            x = torch.bmm(x, T_input)
+            x = x.view(b, f, p, -1)
+        
+        if self.feature_dim != 3:
+            x = self.feature_spatial(x)
+        
+        # temporal convolution
+        x = self.temporal_convolution(x)
+        x = self.final(self.act_layer(x))
+        x = x.view(-1)
+        return x
+
 
 if __name__ == '__main__':
     test_layer = EmotionClassifier()
