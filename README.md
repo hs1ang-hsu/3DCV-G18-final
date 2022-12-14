@@ -12,8 +12,9 @@
 	- collections
 
 - Download dataset
-	Download the dataset from Google drive and put it in the dataset directory.
+	- Download the dataset from Google drive and put it in the dataset directory.
 	https://drive.google.com/drive/folders/1tKcpg4yJ652zaM68L_R6fiS_JLmfiPny?usp=share_link
+	- run ```python download.py```
 
 ### Train
 
