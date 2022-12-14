@@ -50,3 +50,8 @@ python train.py \
 - num_epoch: the number of training epoch
 - export_training_curves: whether to plot training curves
 
+### Inference
+```shell
+python inference.py
+python inference.py --emotion_cls_model checkpoint/model_Tnet.bin --feature_dim 16 --using_trans
+```
