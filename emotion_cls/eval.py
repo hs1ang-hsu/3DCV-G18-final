@@ -31,6 +31,7 @@ def evaluate_frame(model_eval, dataloader_eval, args):
     correct_eval = 0
     N = 0
     progress = tqdm(total=dataloader_eval.num_batches)
+    emotion_matrix = [[0,0,0,0,0,0,0] for i in range(7)]
     with torch.no_grad():
         model_eval.eval()
         for batch_mesh, batch_emotion in dataloader_eval.next_epoch():
@@ -43,12 +44,16 @@ def evaluate_frame(model_eval, dataloader_eval, args):
             pred, loss = model_eval(inputs_mesh, inputs_emotion)
             
             # acc
-            pred = pred.detach().cpu()
-            gt = inputs_emotion.detach().cpu()
+            pred = pred.detach().cpu().int()
+            gt = inputs_emotion.detach().cpu().int().view_as(pred)
             
-            correct_eval += (pred == gt.view_as(pred)).sum().item()
+            for i in range(len(pred)):
+                emotion_matrix[pred[i]][gt[i]] += 1
+            
+            correct_eval += (pred == gt).sum().item()
             N += gt.size(0)
             progress.update(1)
+    print(emotion_matrix)
     return correct_eval / N
 
 def evaluate(model_eval, dataloader_eval, args):
@@ -83,10 +88,14 @@ def get_dataset(args, data, s):
     print(f"processing {s} data...")
     input = []
     gt = []
+    
+    emotions = [0] * 7
     for d in data:
         input.append(d['face_mesh'])
         gt.append(d['emotion'])
+        emotions[d['emotion'][0]] += len(d['emotion'])
     # return UnchunkedGenerator(input, gt, args.frame//2)
+    print(emotions)
     return ChunkedGenerator(64, input, gt, args.frame//2)
 
 
@@ -119,7 +128,7 @@ def parse_args() -> Namespace:
         "--dataset",
         type=str,
         help="Dataset name.",
-        default="./dataset/data.npz",
+        default="./dataset/data_p34.npz",
     )
     parser.add_argument(
         "--evaluate",
