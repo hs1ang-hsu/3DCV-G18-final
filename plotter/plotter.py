@@ -11,7 +11,6 @@ def draw_emotion_histogram(data, name):
 
     ax.set(xlabel='Emotions', ylabel='Count')
     ax.set_title('Histogram of emotions in the test dataset')
-    ax.grid(True)
     
     plt.savefig(name + '.png')
 
@@ -23,6 +22,8 @@ def draw_emotion_evaluate(data, name):
     cmap = sns.light_palette("red", as_cmap=True)
     ax = sns.heatmap(corr, cmap=cmap, annot=True, fmt='d', #vmax=3,
             square=True, linewidths=.5, cbar_kws={"shrink": .5})
+    ax.set_xlabel('Predicted label', fontsize=16)
+    ax.set_ylabel('True label', fontsize=16)
     plt.savefig(name + '.png')
 
 
@@ -49,6 +50,14 @@ if __name__ == '__main__':
         [0, 0, 0, 0, 0, 0, 0]
     ]
     
-    draw_emotion_histogram(train, 'train_hist')
-    draw_emotion_histogram(test, 'test_hist')
-    draw_emotion_evaluate(test_eval, 'test_evaluation')
+    c = 0
+    n = 0
+    for i in [0,4,5]:
+        c += test_eval[i][i]
+        n += test[i]
+    print(c/n)
+    
+    # draw_emotion_histogram(train, 'train_hist')
+    # draw_emotion_histogram(test, 'test_hist')
+    # test_eval = np.transpose(test_eval)
+    # draw_emotion_evaluate(test_eval, 'test_evaluation')
