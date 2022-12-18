@@ -1,0 +1,2 @@
+#python inference_o.py --device cuda --demo ./demo/face1_s.mp4 --load_model ./checkpoints/object_pretrain/chair_v1_140.pth
+python inference_o.py --device cuda --demo ./demo/chair1_s.mp4 --load_model ./checkpoints/object_pretrain/chair_v1_140.pth
