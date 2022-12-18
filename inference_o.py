@@ -136,7 +136,7 @@ def main(args, meta):
             
             frame.flags.writeable = False
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            """
+            #"""
             results = face_mesh.process(frame)
             
             tmp = []
@@ -164,7 +164,7 @@ def main(args, meta):
                 pred = pred_emotion(emotion_cls_model, np.array(query_face_mesh))
                 print(pred)
                 query_face_mesh.pop(0)
-            """
+            #"""
             
             #object pose
             """
@@ -180,37 +180,38 @@ def main(args, meta):
             frame_idx = frame_idx + 1
             """
             
-            """
+            #"""
             #object pose with multiprocessing
             if first_frame:
-                print("init pose!")
+                #print("init pose!")
                 ret = pool.apply(detector.run, (frame, meta, '')) #blocked execution
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
                 ret = pool.apply_async(detector.run, (frame, meta, ''))
                 st2 = time.time()
                 first_frame = False
             if (ret.ready()):
-                print("pose finish!")
+                #print("pose finish!")
                 #get result
                 ret = ret.get()
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
                 #new pose from current frame
                 ret = pool.apply_async(detector.run, (frame, meta, ''))
             else:
-                print("pose running!")
+                #print("pose running!")
                 t, quat = None, None
                 pass
             #extrapolation
             if (t is None) and (len(prev_pose) >= 2):
                 t, quat = pose_extrapolation(frame_idx, prev_pose)
             frame_idx = frame_idx + 1
-            """
+            #"""
             #===========
             if t is not None:
                 #object render
+                print("object pose acquired, should render object here")
                 pass
             else:
-                #no object, no rander
+                #no object, no render
                 pass
             
     cap.release()
