@@ -70,12 +70,17 @@ def pose_extrapolation(frame_idx, prev_pose):
         rot = prev_pose[-2][2] * prev_pose[-1][2].inv()
         axis = rot.as_rotvec()
         ang = np.linalg.norm(rot.as_rotvec())
+        if ang == 0:#no rotation
+            quat = prev_pose[-1][2]
+            print(f"frame {frame_idx} extrapolated t: {t}, r: (quat.as_rotvec())")
+            return t, quat
         axisn = axis / ang
         ang = ang *  (frame_idx - prev_pose[-1][0]) / (prev_pose[-1][0] - prev_pose[-2][0])
         ang -= np.pi * int(ang/np.pi)
         axis = axisn * ang
         axis = R.from_rotvec(axis)
         quat = prev_pose[-1][2] * axis
+        print(f"frame {frame_idx} extrapolated t: {t}, r: {quat.as_rotvec()}")
         return t, quat
         
 
@@ -125,18 +130,19 @@ def main(args, meta):
         #===========
         
         while cap.isOpened():
-            if cv2.waitKey(30) == 27:
-                break
+            
             success, frame = cap.read()
             if not success:
                 et = time.time()
                 print(f"total time: {et-st} sec")
                 break
                 #continue
+            if cv2.waitKey(30) == 27:
+                break
             
             frame.flags.writeable = False
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            #"""
+            """
             results = face_mesh.process(frame)
             
             tmp = []
@@ -164,7 +170,7 @@ def main(args, meta):
                 pred = pred_emotion(emotion_cls_model, np.array(query_face_mesh))
                 print(pred)
                 query_face_mesh.pop(0)
-            #"""
+            """
             
             #object pose
             """
@@ -179,7 +185,7 @@ def main(args, meta):
             t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
             frame_idx = frame_idx + 1
             """
-            
+            cv2.imshow('frame', frame)
             #"""
             #object pose with multiprocessing
             if first_frame:
@@ -191,6 +197,8 @@ def main(args, meta):
                 first_frame = False
             if (ret.ready()):
                 #print("pose finish!")
+                #print(f"frame {frame_idx}, prev rot: {[p[2].as_rotvec() for p in prev_pose]}")
+                #print(f"frame {frame_idx}, prev t: {[p[1] for p in prev_pose]}")
                 #get result
                 ret = ret.get()
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
@@ -208,7 +216,7 @@ def main(args, meta):
             #===========
             if t is not None:
                 #object render
-                print("object pose acquired, should render object here")
+                #print("object pose acquired, should render object here")
                 pass
             else:
                 #no object, no render
