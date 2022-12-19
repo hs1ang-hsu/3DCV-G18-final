@@ -74,7 +74,7 @@ def pose_extrapolation(frame_idx, prev_pose):
         ang = ang *  (frame_idx - prev_pose[-1][0]) / (prev_pose[-1][0] - prev_pose[-2][0])
         ang -= np.pi * int(ang/np.pi)
         axis = axisn * ang
-        axis = axis.as_quat()
+        axis = R.from_rotvec(axis)
         quat = prev_pose[-1][2] * axis
         return t, quat
         
@@ -96,7 +96,7 @@ def main(args, meta):
         print("webcam mode")
     else:
         print("video mode")
-        cap.set(cv2.CAP_PROP_FPS, 20) 
+        #cap.set(cv2.CAP_PROP_FPS, 20) 
     print(f"video opened: {cap.isOpened()}")
     
     if OBJECT_FLAG:
@@ -184,9 +184,9 @@ def main(args, meta):
             #object pose with multiprocessing
             if first_frame:
                 #print("init pose!")
-                ret = pool.apply(detector.run, (frame, meta, '')) #blocked execution
+                ret = pool.apply(detector.run, (frame, '', meta)) #blocked execution
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
-                ret = pool.apply_async(detector.run, (frame, meta, ''))
+                ret = pool.apply_async(detector.run, (frame, '', meta))
                 st2 = time.time()
                 first_frame = False
             if (ret.ready()):
@@ -195,7 +195,7 @@ def main(args, meta):
                 ret = ret.get()
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
                 #new pose from current frame
-                ret = pool.apply_async(detector.run, (frame, meta, ''))
+                ret = pool.apply_async(detector.run, (frame, '', meta))
             else:
                 #print("pose running!")
                 t, quat = None, None
