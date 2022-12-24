@@ -20,6 +20,8 @@ import time
 import torch.multiprocessing as multiprocessing
 multiprocessing.set_start_method('spawn', force=True)
 from scipy.spatial.transform import Rotation as R
+import json
+import pickle
 
 # facial keypoints
 mouth = [0, 61, 17, 291, 13, 14]
@@ -72,7 +74,7 @@ def pose_extrapolation(frame_idx, prev_pose):
         ang = np.linalg.norm(rot.as_rotvec())
         if ang == 0:#no rotation
             quat = prev_pose[-1][2]
-            print(f"frame {frame_idx} extrapolated t: {t}, r: (quat.as_rotvec())")
+            #print(f"frame {frame_idx} extrapolated t: {t}, r: (quat.as_rotvec())")
             return t, quat
         axisn = axis / ang
         ang = ang *  (frame_idx - prev_pose[-1][0]) / (prev_pose[-1][0] - prev_pose[-2][0])
@@ -80,11 +82,11 @@ def pose_extrapolation(frame_idx, prev_pose):
         axis = axisn * ang
         axis = R.from_rotvec(axis)
         quat = prev_pose[-1][2] * axis
-        print(f"frame {frame_idx} extrapolated t: {t}, r: {quat.as_rotvec()}")
+        #print(f"frame {frame_idx} extrapolated t: {t}, r: {quat.as_rotvec()}")
         return t, quat
         
 
-def main(args, meta):
+def main(args, meta, async_=True):
     OBJECT_FLAG = len(args.load_model) > 0
 
     emotion_cls_model = EmotionClassifierInference(args.kp, args.feature_dim, args.hidden_dim, args.channels,
@@ -94,14 +96,11 @@ def main(args, meta):
     emotion_cls_model.eval()
     
     #print("Start webcam")
-    #cap = cv2.VideoCapture(0, cv2.CAP_DSHOW) #windows
-    #cap = cv2.VideoCapture(0, cv2.CAP_V4L2) #linux
     cap = cv2.VideoCapture(0 if args.demo == 'webcam' else args.demo)
     if args.demo == 'webcam':
         print("webcam mode")
     else:
         print("video mode")
-        #cap.set(cv2.CAP_PROP_FPS, 20) 
     print(f"video opened: {cap.isOpened()}")
     
     if OBJECT_FLAG:
@@ -113,6 +112,7 @@ def main(args, meta):
         detector.pause = False
     
     img_size = [cap.get(cv2.CAP_PROP_FRAME_HEIGHT), cap.get(cv2.CAP_PROP_FRAME_WIDTH)]
+    #print("image size:", img_size)
     with mp_face_mesh.FaceMesh(
         static_image_mode=True,
         max_num_faces=1,
@@ -127,6 +127,7 @@ def main(args, meta):
         pool = multiprocessing.Pool(processes=1)
         first_frame = True
         prev_pose = []
+        all_pose = {}
         #===========
         
         while cap.isOpened():
@@ -142,6 +143,7 @@ def main(args, meta):
             
             frame.flags.writeable = False
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            #face
             """
             results = face_mesh.process(frame)
             
@@ -172,47 +174,56 @@ def main(args, meta):
                 query_face_mesh.pop(0)
             """
             
+            
             #object pose
-            """
-            #object pose without multiprocessing
-            if first_frame:
+            #"""
+            if not args.async_:
+                #object pose without multiprocessing
+                if first_frame:
+                    ret = detector.run(frame, meta_inp=meta, filename='')
+                    t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
+                    st2 = time.time()
+                    first_frame=False
+                    continue
                 ret = detector.run(frame, meta_inp=meta, filename='')
                 t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
-                st2 = time.time()
-                first_frame=False
-                continue
-            ret = detector.run(frame, meta_inp=meta, filename='')
-            t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
-            frame_idx = frame_idx + 1
-            """
-            cv2.imshow('frame', frame)
+                if (t is not None):
+                    all_pose[frame_idx] = (t, quat)
+                frame_idx = frame_idx + 1
             #"""
-            #object pose with multiprocessing
-            if first_frame:
-                #print("init pose!")
-                ret = pool.apply(detector.run, (frame, '', meta)) #blocked execution
-                t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
-                ret = pool.apply_async(detector.run, (frame, '', meta))
-                st2 = time.time()
-                first_frame = False
-            if (ret.ready()):
-                #print("pose finish!")
-                #print(f"frame {frame_idx}, prev rot: {[p[2].as_rotvec() for p in prev_pose]}")
-                #print(f"frame {frame_idx}, prev t: {[p[1] for p in prev_pose]}")
-                #get result
-                ret = ret.get()
-                t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
-                #new pose from current frame
-                ret = pool.apply_async(detector.run, (frame, '', meta))
+            
+            #"""
             else:
-                #print("pose running!")
-                t, quat = None, None
-                pass
-            #extrapolation
-            if (t is None) and (len(prev_pose) >= 2):
-                t, quat = pose_extrapolation(frame_idx, prev_pose)
-            frame_idx = frame_idx + 1
+                cv2.imshow('frame', frame)
+                #object pose with multiprocessing
+                if first_frame:
+                    #print("init pose!")
+                    ret = pool.apply(detector.run, (frame, '', meta)) #blocked execution
+                    t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
+                    ret = pool.apply_async(detector.run, (frame, '', meta))
+                    st2 = time.time()
+                    first_frame = False
+                if (ret.ready()):
+                    #print("pose finish!")
+                    #print(f"frame {frame_idx}, prev rot: {[p[2].as_rotvec() for p in prev_pose]}")
+                    #print(f"frame {frame_idx}, prev t: {[p[1] for p in prev_pose]}")
+                    #get result
+                    ret = ret.get()
+                    t, quat, prev_pose = get_pose(ret, prev_pose, frame_idx)
+                    #new pose from current frame
+                    ret = pool.apply_async(detector.run, (frame, '', meta))
+                else:
+                    #print("pose running!")
+                    t, quat = None, None
+                    pass
+                #extrapolation
+                if (t is None) and (len(prev_pose) >= 2):
+                    t, quat = pose_extrapolation(frame_idx, prev_pose)
+                if (t is not None):
+                    all_pose[frame_idx] = (t, quat)
+                frame_idx = frame_idx + 1
             #"""
+            
             #===========
             if t is not None:
                 #object render
@@ -221,7 +232,13 @@ def main(args, meta):
             else:
                 #no object, no render
                 pass
-            
+    print("saving...")
+    if async_:
+        with open(f"all_pose_async.pickle", 'wb') as f:
+            pickle.dump(all_pose, f)
+    else:
+        with open(f"all_pose_sync.pickle", 'wb') as f:
+            pickle.dump(all_pose, f)
     cap.release()
 
 if __name__ == "__main__":
@@ -233,7 +250,7 @@ if __name__ == "__main__":
     meta = {}
     if opt.cam_intrinsic is None:
         meta['camera_matrix'] = np.array(
-            [[663.0287679036459, 0, 300.2775065104167], [0, 663.0287679036459, 395.00066121419275], [0, 0, 1]])
+            [[600.0, 0, 180.0], [0, 600., 101], [0, 0, 1]])
         opt.cam_intrinsic = meta['camera_matrix']
     else:
         meta['camera_matrix'] = np.array(opt.cam_intrinsic).reshape(3, 3)
@@ -242,3 +259,5 @@ if __name__ == "__main__":
     opt = opts().parse(opt)
     args = opts().init(opt)
     main(args, meta)
+    
+    
