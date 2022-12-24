@@ -64,9 +64,9 @@ python inference.py --emotion_cls_model checkpoint/model_Tnet.bin --feature_dim 
 	https://drive.google.com/file/d/1tmp_iob-mx-mrbdpVS0K7sKE12ERJy7X/view?usp=share_link 
 
 ### Inference
-demo video
+demo video here: https://drive.google.com/file/d/1pJBqZp1PulPHy7NAay5Bb98UE7lqFJeQ/view?usp=share_link
 ```shell
-python inference_o.py --device cuda --demo ./demo_vid/mug1_s.mp4 --load_model <path to pretrain model>
+python inference_o.py --device cuda --demo <path to video> --load_model <path to pretrain model>
 ```
 webcam
 ```shell
