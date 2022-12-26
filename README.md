@@ -72,3 +72,15 @@ webcam
 ```shell
 python inference_o.py --device cuda --demo 'webcam' --load_model <path to pretrain model>
 ```
+
+
+## Virtual Avatar with facial emotion
+
+### Inference
+
+Server (Unity): Open Unity project "3DCV_VTuber" folder and run. 
+
+Client (Python)
+```shell
+python inferenceWithVtuber.py --connect --debug [--port PORT]
+```
