@@ -41,18 +41,7 @@ python train.py \
 ```
 - frame: the number of frame as video sequence input
 - kp: the number of facial keypoint
-- feature_dim: the expanded dimension of input feature
-- hidden_dim: the dimension of hidden layer in transform net
-- channels: the expanded dimension of spatial feature in temporal convolution net
-- out_dim: the output dimension of temporal convolution net
-- num_classes: the total class of facial emotions
 - using_trans: whether to use transform net
-- lr: learning rate
-- lrd: learning rate drop
-- batch_size: batch size
-- device: specify from "cpu, cuda, cuda:0, cuda:1"
-- num_epoch: the number of training epoch
-- export_training_curves: whether to plot training curves
 
 ### Inference
 ```shell
